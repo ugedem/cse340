@@ -1,310 +1,250 @@
 const invModel = require("../models/inventory-model");
 const jwt = require("jsonwebtoken");
-
 require("dotenv").config();
 
 const Util = {};
 
 /**
-* @typedef {Object} Message
-* @property {number} message_id
-* @property {string} message_subject
-* @property {string} message_body
-* @property {Date} message_created
-* @property {number} message_to
-* @property {number} message_from
-* @property {boolean} message_read
-* @property {boolean} message_archived
-*/
+ * @typedef {Object} Message
+ * @property {number} message_id
+ * @property {string} message_subject
+ * @property {string} message_body
+ * @property {Date} message_created
+ * @property {number} message_to
+ * @property {number} message_from
+ * @property {boolean} message_read
+ * @property {boolean} message_archived
+ */
 
-
-/* ************************
+/* *******************************
  * Constructs the nav HTML unordered list
- ************************** */
-Util.getNav = async function (req, res, next) {
-  let data = await invModel.getClassifications();
-  let list = "<ul>";
-  list += '<li><a href="/" title="Home page">Home</a></li>';
-  data.rows.forEach((row) => {
-    list += "<li>";
-    list +=
-      '<a href="/inv/type/' +
-      row.classification_id +
-      '" title="See our inventory of ' +
-      row.classification_name +
-      ' vehicles">' +
-      row.classification_name +
-      "</a>";
-    list += "</li>";
+ ********************************/
+Util.getNav = async (req, res, next) => {
+  const { rows } = await invModel.getClassifications();
+  let nav = `<ul>
+    <li><a href="/" title="Home page">Home</a></li>`;
+
+  rows.forEach(({ classification_id, classification_name }) => {
+    nav += `
+      <li>
+        <a href="/inv/type/${classification_id}" title="See our inventory of ${classification_name} vehicles">
+          ${classification_name}
+        </a>
+      </li>`;
   });
-  list += "</ul>";
-  return list;
+
+  nav += "</ul>";
+  return nav;
 };
 
-/* **************************************
- * Build the classification view HTML
- * ************************************ */
-Util.buildClassificationGrid = async function (data) {
-  let grid;
-  if (data.length > 0) {
-    grid = '<ul id="inv-display">';
-    data.forEach((vehicle) => {
-      grid += "<li>";
-      grid +=
-        '<a href="../../inv/detail/' +
-        vehicle.inv_id +
-        '" title="View ' +
-        vehicle.inv_make +
-        " " +
-        vehicle.inv_model +
-        'details"><img src="' +
-        vehicle.inv_thumbnail +
-        '" alt="Image of ' +
-        vehicle.inv_make +
-        " " +
-        vehicle.inv_model +
-        ' on CSE Motors" /></a>';
-      grid += '<div class="namePrice">';
-      grid += "<hr />";
-      grid += "<h2>";
-      grid +=
-        '<a href="../../inv/detail/' +
-        vehicle.inv_id +
-        '" title="View ' +
-        vehicle.inv_make +
-        " " +
-        vehicle.inv_model +
-        ' details">' +
-        vehicle.inv_make +
-        " " +
-        vehicle.inv_model +
-        "</a>";
-      grid += "</h2>";
-      grid +=
-        "<span>$" +
-        new Intl.NumberFormat("en-US").format(vehicle.inv_price) +
-        "</span>";
-      grid += "</div>";
-      grid += "</li>";
-    });
-    grid += "</ul>";
-  } else {
-    grid += '<p class="notice">Sorry, no matching vehicles could be found.</p>';
+/* *************************************
+ * Build the classification grid HTML
+ **************************************/
+Util.buildClassificationGrid = async (vehicles) => {
+  if (!vehicles.length) {
+    return '<p class="notice">Sorry, no matching vehicles could be found.</p>';
   }
-  return grid;
+
+  return `
+    <ul id="inv-display">
+      ${vehicles
+        .map(
+          (v) => `
+        <li>
+          <a href="../../inv/detail/${v.inv_id}" title="View ${v.inv_make} ${v.inv_model} details">
+            <img src="${v.inv_thumbnail}" alt="Image of ${v.inv_make} ${v.inv_model} on CSE Motors" />
+          </a>
+          <div class="namePrice">
+            <hr />
+            <h2>
+              <a href="../../inv/detail/${v.inv_id}">${v.inv_make} ${v.inv_model}</a>
+            </h2>
+            <span>$${new Intl.NumberFormat("en-US").format(v.inv_price)}</span>
+          </div>
+        </li>`
+        )
+        .join("")}
+    </ul>`;
 };
 
 /**
- * Build a single listing element from data
+ * Build a detailed vehicle listing view
  */
-Util.buildItemListing = async function (data) {
-  let listingHTML = "";
-  console.dir({ data });
-  if (data) {
-    listingHTML = `
-      <section class="car-listing">
-        <img src="${data.inv_image}" alt="${data.inv_make} ${data.inv_model}">
-        <div class="car-information">
-          <div>
-            <h2>${data.inv_year} ${data.inv_make} ${data.inv_model}</h2>
-          </div>
-          <div>
-            ${Number.parseFloat(data.inv_price).toLocaleString("en-US", {
-              style: "currency",
-              currency: "USD",
-            })}
-          </div>
-          <div class="description">
-            <p>
-              ${data.inv_description}
-            </p>
-            <dl>
-              <dt>MILEAGE</dt>
-              <dd>${data.inv_miles.toLocaleString("en-US", {
-                style: "decimal",
-              })}</dd>
-              <dt>COLOR</dt>
-              <dd>${data.inv_color}</dd>
-              <dt>CLASS</dt>
-              <dd>${data.classification_name}</dd>
-            </dl>
-          </div>
+Util.buildItemListing = async (data) => {
+  if (!data) {
+    return `<p>Sorry, no matching vehicles could be found.</p>`;
+  }
 
+  return `
+    <section class="car-listing">
+      <img src="${data.inv_image}" alt="${data.inv_make} ${data.inv_model}">
+      <div class="car-information">
+        <h2>${data.inv_year} ${data.inv_make} ${data.inv_model}</h2>
+        <div>${parseFloat(data.inv_price).toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+        })}</div>
+        <div class="description">
+          <p>${data.inv_description}</p>
+          <dl>
+            <dt>MILEAGE</dt><dd>${data.inv_miles.toLocaleString()}</dd>
+            <dt>COLOR</dt><dd>${data.inv_color}</dd>
+            <dt>CLASS</dt><dd>${data.classification_name}</dd>
+          </dl>
         </div>
-      </section>
-    `;
-    // listingHTML += '<img src="/images/notexist.jpg">'; // Introduce 404 error
-  } else {
-    listingHTML = `
-      <p>Sorry, no matching vehicles could be found.</p>
-    `;
-  }
-  return listingHTML;
+      </div>
+    </section>`;
 };
 
 /**
- * Build an HTML select element with classification data
- * @param {int} classification_id
- * @returns {string}
+ * Build HTML select dropdown with classification data
  */
+Util.buildClassificationList = async (classification_id = null) => {
+  const { rows } = await invModel.getClassifications();
+  const options = rows
+    .map(
+      ({ classification_id: id, classification_name }) => `
+    <option value="${id}" ${id == classification_id ? "selected" : ""}>
+      ${classification_name}
+    </option>`
+    )
+    .join("");
 
-Util.buildClassificationList = async function (classification_id = null) {
-  let data = await invModel.getClassifications();
-  let classificationList =
-    '<select name="classification_id" id="classificationList" required>';
-  classificationList += "<option value=''>Choose a Classification</option>";
-  data.rows.forEach((row) => {
-    classificationList += '<option value="' + row.classification_id + '"';
-    if (
-      classification_id != null &&
-      row.classification_id == classification_id
-    ) {
-      classificationList += " selected ";
-    }
-    classificationList += ">" + row.classification_name + "</option>";
-  });
-  classificationList += "</select>";
-  return classificationList;
+  return `
+    <select name="classification_id" id="classificationList" required>
+      <option value="">Choose a Classification</option>
+      ${options}
+    </select>`;
 };
 
-/* ****************************************
- * Middleware For Handling Errors
- * Wrap other function in this for
- * General Error Handling
- **************************************** */
+/**
+ * Wrap async functions for error handling
+ */
 Util.handleErrors = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
-/* ****************************************
- * Middleware to check token validity
- **************************************** */
-Util.checkJWTToken = (req, res, next) => {
-  if (req.cookies.jwt) {
-    jwt.verify(
-      req.cookies.jwt,
-      process.env.ACCESS_TOKEN_SECRET,
-      function (err, accountData) {
-        if (err) {
-          req.flash("Please log in");
-          res.clearCookie("jwt");
-          return res.redirect("/account/login");
-        }
-        res.locals.accountData = accountData;
-        res.locals.loggedin = 1;
-        next();
-      }
-    );
-  } else {
-    next();
-  }
-};
-
 /**
- * Function to update the browser cookie.
- * @param {object} accountData
- * @param {import("express").Response} res
+ * Check JWT and load user
  */
+Util.checkJWTToken = (req, res, next) => {
+  const token = req.cookies.jwt;
+  if (!token) return next();
 
-Util.updateCookie = (accountData, res) => {
-  const accessToken = jwt.sign(accountData, process.env.ACCESS_TOKEN_SECRET, {
-    expiresIn: 3600,
-  });
-  if (process.env.NODE_ENV === "development") {
-    res.cookie("jwt", accessToken, { httpOnly: true, maxAge: 3600 * 1000 });
-  } else {
-    res.cookie("jwt", accessToken, {
-      httpOnly: true,
-      secure: true,
-      maxAge: 3600 * 1000,
-    });
-  }
-};
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, accountData) => {
+    if (err) {
+      req.flash("notice", "Session expired. Please log in.");
+      res.clearCookie("jwt");
+      return res.redirect("/account/login");
+    }
 
-/* ****************************************
- *  Check Login
- * ************************************ */
-Util.checkLogin = (req, res, next) => {
-  if (res.locals.loggedin) {
+    res.locals.accountData = accountData;
+    res.locals.loggedin = true;
     next();
-  } else {
-    req.flash("notice", "Please log in.");
-    return res.redirect("/account/login");
-  }
+  });
 };
-
-/* ****************************************
- *  Check authorization
- * ************************************ */
-Util.checkAuthorizationManager = (req, res, next) => {
-  if (req.cookies.jwt) {
-    jwt.verify(
-      req.cookies.jwt,
-      process.env.ACCESS_TOKEN_SECRET,
-      function (err, accountData) {
-        if (err) {
-          req.flash("Please log in");
-          res.clearCookie("jwt");
-          return res.redirect("/account/login");
-        }
-        if (
-          accountData.account_type == "Employee" ||
-          accountData.account_type == "Admin"
-        ) {
-          next();
-        } else {
-          req.flash("notice", "You are not authorized to modify inventory.");
-          return res.redirect("/account/login");
-        }
-      }
-    );
-  } else {
-    req.flash("notice", "You are not authorized to modify inventory.");
-    return res.redirect("/account/login");
-  }
-};
-
 
 /**
- * Build an html table string from the message array
- * @param {Array<Message>} messages 
- * @returns 
+ * Set auth token as cookie
+ */
+Util.updateCookie = (accountData, res) => {
+  const token = jwt.sign(accountData, process.env.ACCESS_TOKEN_SECRET, {
+    expiresIn: "1h",
+  });
+
+  const options = {
+    httpOnly: true,
+    maxAge: 3600000, // 1 hour
+    ...(process.env.NODE_ENV !== "development" && { secure: true }),
+  };
+
+  res.cookie("jwt", token, options);
+};
+
+/**
+ * Guard route for logged-in users only
+ */
+Util.checkLogin = (req, res, next) => {
+  if (res.locals.loggedin) return next();
+
+  req.flash("notice", "Please log in.");
+  return res.redirect("/account/login");
+};
+
+/**
+ * Guard route for employees/admins
+ */
+Util.checkAuthorizationManager = (req, res, next) => {
+  const token = req.cookies.jwt;
+  if (!token) {
+    req.flash("notice", "Unauthorized.");
+    return res.redirect("/account/login");
+  }
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, accountData) => {
+    if (err || !["Employee", "Admin"].includes(accountData.account_type)) {
+      req.flash("notice", "You are not authorized to modify inventory.");
+      return res.redirect("/account/login");
+    }
+
+    next();
+  });
+};
+
+/**
+ * Guard route for Admin-only access
+ */
+Util.checkAdmin = (req, res, next) => {
+  if (res.locals.accountData?.account_type === "Admin") return next();
+
+  req.flash("notice", "Access denied. Admins only.");
+  return res.redirect("/account");
+};
+
+/**
+ * Build Inbox Table
  */
 Util.buildInbox = (messages) => {
-  inboxList = `
-  <table>
-    <thead>
-      <tr>
-        <th>Received</th><th>Subject</th><th>From</th><th>Read</th>
-      </tr>
-    </thead>
-    <tbody>`;
-
-  messages.forEach((message) => {
-    inboxList += `
+  const rows = messages
+    .map(
+      (m) => `
     <tr>
-      <td>${message.message_created.toLocaleString()}</td>
-      <td><a href="/message/view/${message.message_id}">${message.message_subject}</a></td>
-      <td>${message.account_firstname} ${message.account_type}</td>
-      <td>${message.message_read ? "✓" : " "}</td>
-    </tr>`;
-  });
+      <td>${m.message_created.toLocaleString()}</td>
+      <td><a href="/message/view/${m.message_id}">${m.message_subject}</a></td>
+      <td>${m.account_firstname} ${m.account_type}</td>
+      <td>${m.message_read ? "✓" : ""}</td>
+    </tr>`
+    )
+    .join("");
 
-  inboxList += `
-  </tbody>
-  </table> `;
-  return inboxList;
+  return `
+    <table>
+      <thead>
+        <tr><th>Received</th><th>Subject</th><th>From</th><th>Read</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 };
 
-Util.buildRecipientList = (recipientData, preselected = null) => {
-  let list = `<select name="message_to" required>`;
-  list += '<option value="">Select a recipient</option>';
+/**
+ * Build select menu of message recipients
+ */
+Util.buildRecipientList = (recipients, preselected = null) => {
+  const options = recipients
+    .map(
+      (r) => `
+      <option value="${r.account_id}" ${
+        preselected == r.account_id ? "selected" : ""
+      }>
+        ${r.account_firstname} ${r.account_lastname}
+      </option>`
+    )
+    .join("");
 
-  recipientData.forEach((recipient) => {
-    list += `<option ${preselected == recipient.account_id ? "selected" : ""} value="${recipient.account_id}">${recipient.account_firstname} ${recipient.account_lastname}</option>`
-  });
-  list += "</select>"
-
-  return list;
-
+  return `
+    <select name="message_to" required>
+      <option value="">Select a recipient</option>
+      ${options}
+    </select>`;
 };
+
 module.exports = Util;

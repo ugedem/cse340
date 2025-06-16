@@ -1,109 +1,142 @@
 const pool = require("../database/");
 
 /* *****************************
- *   Register new account
+ * Register new account
  * *************************** */
-async function registerAccount(
-  account_firstname,
-  account_lastname,
-  account_email,
-  account_password
-) {
+async function registerAccount(firstname, lastname, email, password) {
   try {
-    const sql =
-      "INSERT INTO account (account_firstname, account_lastname, account_email, account_password, account_type) VALUES ($1, $2, $3, $4, 'Client') RETURNING *";
-    return await pool.query(sql, [
-      account_firstname,
-      account_lastname,
-      account_email,
-      account_password,
-    ]);
+    const sql = `
+      INSERT INTO account (account_firstname, account_lastname, account_email, account_password, account_type)
+      VALUES ($1, $2, $3, $4, 'Client')
+      RETURNING account_id, account_firstname, account_lastname, account_email, account_type
+    `;
+    const result = await pool.query(sql, [firstname, lastname, email, password]);
+    return result.rows[0];
   } catch (error) {
-    return error.message;
-  }
-}
-
-/* **********************
- *   Check for existing email
- * ********************* */
-async function checkExistingEmail(account_email, excludedEmail = null) {
-  try {
-    if(excludedEmail) {
-      const sql = "SELECT * FROM account WHERE account_email = $1 AND account_email != $2";
-      const email = await pool.query(sql, [account_email, excludedEmail]);
-      return email.rowCount;
-    }
-    else {
-      const sql = "SELECT * FROM account WHERE account_email = $1"; 
-      const email = await pool.query(sql, [account_email]);
-      return email.rowCount;
-    }
-  } catch (error) {
-    return error.message;
+    console.error("registerAccount error:", error);
+    throw new Error("Registration failed");
   }
 }
 
 /* *****************************
- * Return account data using email address
- * ***************************** */
-async function getAccountByEmail(account_email) {
+ * Check for existing email (optionally exclude current email)
+ * *************************** */
+async function checkExistingEmail(email, excludedEmail = null) {
   try {
-    const result = await pool.query(
-      "SELECT account_id, account_firstname, account_lastname, account_email, account_type, account_password FROM account WHERE account_email = $1",
-      [account_email]
-    );
-    return result.rows[0];
+    let sql, values;
+    if (excludedEmail) {
+      sql = "SELECT 1 FROM account WHERE account_email = $1 AND account_email != $2";
+      values = [email, excludedEmail];
+    } else {
+      sql = "SELECT 1 FROM account WHERE account_email = $1";
+      values = [email];
+    }
+    const result = await pool.query(sql, values);
+    return result.rowCount > 0;
   } catch (error) {
-    return new Error("No matching email found");
+    console.error("checkExistingEmail error:", error);
+    throw new Error("Email verification failed");
   }
 }
 
 /* *****************************
- * Return account data using account id
- * ***************************** */
-async function getAccountById(account_id) {
+ * Get account by email
+ * *************************** */
+async function getAccountByEmail(email) {
   try {
-    const result = await pool.query(
-      "SELECT account_id, account_firstname, account_lastname, account_email, account_type, account_password FROM account WHERE account_id = $1",
-      [account_id]
-    );
+    const sql = `
+      SELECT account_id, account_firstname, account_lastname, account_email, account_type, account_password
+      FROM account
+      WHERE account_email = $1
+    `;
+    const result = await pool.query(sql, [email]);
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error("getAccountByEmail error:", error);
+    throw new Error("Could not retrieve account by email");
+  }
+}
+
+/* *****************************
+ * Get account by ID
+ * *************************** */
+async function getAccountById(id) {
+  try {
+    const sql = `
+      SELECT account_id, account_firstname, account_lastname, account_email, account_type, account_password
+      FROM account
+      WHERE account_id = $1
+    `;
+    const result = await pool.query(sql, [id]);
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error("getAccountById error:", error);
+    throw new Error("Could not retrieve account by ID");
+  }
+}
+
+/* *****************************
+ * Update account details (not password)
+ * *************************** */
+async function updateAccount(id, firstname, lastname, email) {
+  try {
+    const sql = `
+      UPDATE account
+      SET account_firstname = $1, account_lastname = $2, account_email = $3
+      WHERE account_id = $4
+      RETURNING account_id, account_firstname, account_lastname, account_email
+    `;
+    const result = await pool.query(sql, [firstname, lastname, email, id]);
     return result.rows[0];
   } catch (error) {
-    return new Error("No matching email found");
+    console.error("updateAccount error:", error);
+    throw new Error("Account update failed");
   }
 }
 
-
-async function updateAccount(account_id, account_firstname, account_lastname, account_email) {
-  try{
-    const sql = "UPDATE account SET account_firstname = $1, account_lastname = $2, account_email = $3 WHERE account_id = $4"
-    const result = await pool.query(sql, [account_firstname, account_lastname, account_email, account_id]);
-    return result; // TODO: See what the requirement wants
-  } catch(error) {
-    return new Error("Update failed");
+/* *****************************
+ * Update account password
+ * *************************** */
+async function updatePassword(id, hashedPassword) {
+  try {
+    const sql = `
+      UPDATE account
+      SET account_password = $1
+      WHERE account_id = $2
+      RETURNING account_id
+    `;
+    const result = await pool.query(sql, [hashedPassword, id]);
+    return result.rowCount > 0;
+  } catch (error) {
+    console.error("updatePassword error:", error);
+    throw new Error("Password update failed");
   }
-
-}
-async function updatePassword(account_id, hashed_password) {
-  try{
-    const sql = "UPDATE account SET account_password = $1 WHERE account_id = $2"
-    const result = await pool.query(sql, [hashed_password, account_id]);
-    return result; // TODO: See what the requirement wants
-  } catch(error) {
-    return new Error("Update password failed")
-  }
-
 }
 
+/* *****************************
+ * Get all accounts (for admin)
+ * *************************** */
 async function getAccountList() {
-  const sql = "SELECT account_id, account_firstname, account_lastname FROM public.account";
   try {
-    const response = await pool.query(sql);
-    return response.rows;
-  }
-  catch(error) {
-    return new Error("Failed to get account list");
+    const sql = `
+      SELECT account_id, account_firstname, account_lastname
+      FROM account
+      ORDER BY account_lastname ASC
+    `;
+    const result = await pool.query(sql);
+    return result.rows;
+  } catch (error) {
+    console.error("getAccountList error:", error);
+    throw new Error("Could not retrieve account list");
   }
 }
 
-module.exports = { registerAccount, checkExistingEmail, getAccountByEmail, getAccountById, updateAccount, updatePassword,getAccountList };
+module.exports = {
+  registerAccount,
+  checkExistingEmail,
+  getAccountByEmail,
+  getAccountById,
+  updateAccount,
+  updatePassword,
+  getAccountList,
+};

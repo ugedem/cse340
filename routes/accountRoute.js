@@ -1,16 +1,31 @@
-// Needed Resources
 const express = require("express");
-const router = new express.Router();
-
+const router = express.Router();
 const accountController = require("../controllers/accountController");
 const utilities = require("../utilities");
 const regValidate = require("../utilities/account-validation");
 
+/* ======================
+ * View Routes
+ * ===================== */
 
-router.get("/", utilities.checkLogin, utilities.handleErrors(accountController.buildAccountManagementView));
-
-// Route to build account view
+// Login view
 router.get("/login", utilities.handleErrors(accountController.buildLogin));
+
+// Register view
+router.get("/register", utilities.handleErrors(accountController.buildRegister));
+
+// Account management dashboard (authenticated users only)
+router.get("/", utilities.checkLogin, utilities.handleErrors(accountController.buildAccountManagement));
+
+// Account update view (authenticated users only)
+router.get("/update", utilities.checkLogin, utilities.handleErrors(accountController.buildUpdateAccount));
+
+
+/* ======================
+ * Authentication & Account Logic
+ * ===================== */
+
+// Process login
 router.post(
   "/login",
   regValidate.loginRules(),
@@ -18,32 +33,39 @@ router.post(
   utilities.handleErrors(accountController.accountLogin)
 );
 
-// Route to logout
-router.get("/logout", utilities.handleErrors(accountController.accountLogout));
+// Process logout
+router.get("/logout", utilities.handleErrors(accountController.logout));
 
-// Registration handlers
-router.get("/registration", utilities.handleErrors(accountController.buildRegister));
+// Process new registration
 router.post(
   "/register",
   regValidate.registrationRules(),
+  regValidate.passwordRules(),
   regValidate.checkRegData,
   utilities.handleErrors(accountController.registerAccount)
 );
 
-// Update account handlers
-router.get("/update/:accountId", utilities.handleErrors(accountController.buildUpdate));
+
+/* ======================
+ * Account Updates (authenticated)
+ * ===================== */
+
+// Update personal details
 router.post(
   "/update",
-  regValidate.updateRules(), // TODO: This needs to have a separate rule set, without existing email check..unless...oh complex
+  utilities.checkLogin,
+  regValidate.updateRules(),
   regValidate.checkUpdateData,
   utilities.handleErrors(accountController.updateAccount)
-  );
+);
+
+// Update password
 router.post(
   "/update-password",
+  utilities.checkLogin,
   regValidate.updatePasswordRules(),
   regValidate.checkUpdatePasswordData,
   utilities.handleErrors(accountController.updatePassword)
 );
-
 
 module.exports = router;

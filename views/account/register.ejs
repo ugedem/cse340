@@ -1,33 +1,72 @@
-<h1><%- title %></h1>
-<%- messages() %>
-<% if (errors) { %>
-    <ul class="notice">
-   <% errors.array().forEach(error => { %>
-     <li><%= error.msg %></li>
-  <%  }) %>
-   </ul>
-  <% } %>
+<h1 class="login-heading">Register</h1>
 
-<form class="input-box" action="/account/register" method="post">
-    <label>First name<input type="text" name="account_firstname" required autocomplete="given-name" value="<%= locals.account_firstname %>"></label>
-    <label>Last name<input type="text" name="account_lastname" required autocomplete="family-name" value="<%= locals.account_lastname %>"></label>
-    <label>Email address<input type="email" name="account_email" required autocomplete="email" value="<%= locals.account_email %>"></label>
-    <label>Password<input type="password" name="account_password" id="password" required autocomplete="new-password" pattern="^(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{12,}$"><span class="reveal-button active" id="passwordHide">hide password</span></label>
-    <span class="fine-print">Password must be 12 characters or longer, contain 1 capital letter, 1 number and 1 special character</span>
-    <input type="submit" value="REGISTER">
-</form>
-<!-- Script to handle hiding and revealing password field -->
+<div class="login-container">
+  <form id="registerForm" action="/account/register" method="POST">
+    <fieldset>
+      <legend>Create Account</legend>
+
+      <div>
+        <label for="account_firstname">First Name:</label>
+        <input type="text" name="account_firstname" id="account_firstname" maxlength="40" required value="<%= account_firstname || '' %>">
+      </div>
+
+      <div>
+        <label for="account_lastname">Last Name:</label>
+        <input type="text" id="account_lastname" name="account_lastname" maxlength="40" required value="<%= account_lastname || '' %>">
+      </div>
+
+      <div>
+        <label for="account_email_reg">Email:</label>
+        <input type="email" id="account_email_reg" name="account_email" maxlength="50" required value="<%= account_email || '' %>">
+      </div>
+
+      <div>
+        <label for="account_password_reg">Password:</label>
+        <div class="password-wrapper">
+          <input type="password" id="account_password_reg" name="account_password" required maxlength="24"
+            pattern="^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9\s])[^\s]{12,24}$"
+            title="Password must be at least 12 characters and include at least 1 capital letter, 1 number, and 1 special character (no spaces).">
+          <button type="button" id="togglePasswordReg" class="toggle-password-button"
+            aria-label="Show password as plain text. Note: this will visually expose your password on the screen.">
+            <img src="/images/password/eye-off.png" alt="Show password">
+          </button>
+        </div>
+      </div>
+
+      <span class="password-requirements">
+        Passwords must be at least 12 characters and include at least 1 capital letter, 1 number, and 1 special
+        character. Spaces are not allowed.
+      </span>
+
+      <button type="submit" class="login-button">Register</button>
+    </fieldset>
+  </form>
+
+  <p class="signup-link">Already have an account? <a href="/account/login">Login</a></p>
+</div>
+
 <script>
-    const passwordInput = document.querySelector("#password");
-    const passwordHide = document.querySelector("#passwordHide");
-    passwordHide.addEventListener("click", () => {
-        if(passwordInput.getAttribute("type") == "password" ) {
-            passwordInput.setAttribute("type", "text");
-            passwordHide.classList.remove("active");
+  document.addEventListener('DOMContentLoaded', function () {
+    const togglePasswordButtonReg = document.getElementById('togglePasswordReg');
+    const passwordInputReg = document.getElementById('account_password_reg');
+
+    if (togglePasswordButtonReg && passwordInputReg) {
+      const toggleIconReg = togglePasswordButtonReg.querySelector('img');
+
+      togglePasswordButtonReg.addEventListener('click', function () {
+        const type = passwordInputReg.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInputReg.setAttribute('type', type);
+
+        if (type === 'password') {
+          toggleIconReg.src = '/images/password/eye-off.png';
+          toggleIconReg.alt = 'Show password';
+          this.setAttribute('aria-label', 'Show password as plain text. Note: this will visually expose your password on the screen.');
+        } else {
+          toggleIconReg.src = '/images/password/eye-on.png';
+          toggleIconReg.alt = 'Hide password';
+          this.setAttribute('aria-label', 'Hide password and display as dots.');
         }
-        else {
-            passwordInput.setAttribute("type", "password");
-            passwordHide.classList.add("active");
-        }
-    })
+      });
+    }
+  });
 </script>

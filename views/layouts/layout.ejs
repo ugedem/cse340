@@ -1,15 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
-    <%- include('../partials/head') %>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= title %> | CSE Motors</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+
+  <!-- Apply saved theme before rendering -->
+  <script>
+    (function () {
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark-theme");
+      }
+    })();
+  </script>
+</head>
 
 <body>
-    <div id="wrapper">
-        <%- include('../partials/header') %>
-        <%- include('../partials/navigation') %>
-        <main>
-            <%- body %>
-        </main>
-        <%- include('../partials/footer') %>
-    </div>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <div id="wrapper">
+    <!-- Header -->
+    <header class="header" role="banner">
+      <div class="siteName">
+        <h1><a href="/">CSE Motors</a></h1>
+      </div>
+
+      <div class="tools">
+        <span>
+          Welcome <%= locals.loggedin ? (locals.accountData?.account_firstname || 'User') : 'Guest' %>
+        </span>
+
+        <% if (locals.loggedin) { %>
+          <a href="/account/logout" title="Logout">Logout</a>
+        <% } else { %>
+          <a href="/account/login" title="Login">Login</a>
+        <% } %>
+
+        <!-- Cart Icon -->
+        <a href="/cart/view" title="View Cart" class="material-icons cart-icon" aria-label="View shopping cart">
+          shopping_cart
+        </a>
+
+        <!-- Theme toggle -->
+        <span
+          id="themeToggle"
+          class="material-icons theme-icon"
+          title="Toggle theme"
+          role="button"
+          tabindex="0"
+          aria-label="Toggle theme"
+        >
+          light_mode
+        </span>
+      </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav aria-label="Primary navigation">
+      <%- nav %>
+    </nav>
+
+    <!-- Main Content -->
+    <main id="main-content" tabindex="-1">
+      <%- body %>
+    </main>
+
+    <!-- Footer -->
+    <footer role="contentinfo">
+      <%- include('../partials/footer') %>
+    </footer>
+  </div>
+
+  <!-- Theme Toggle Logic -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const icon = document.getElementById("themeToggle");
+
+      function updateIcon() {
+        const isDark = document.documentElement.classList.contains("dark-theme");
+        icon.textContent = isDark ? "dark_mode" : "light_mode";
+      }
+
+      updateIcon();
+
+      icon.addEventListener("click", () => {
+        document.documentElement.classList.toggle("dark-theme");
+        const newTheme = document.documentElement.classList.contains("dark-theme") ? "dark" : "light";
+        localStorage.setItem("theme", newTheme);
+        updateIcon();
+      });
+
+      icon.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          icon.click();
+        }
+      });
+    });
+  </script>
 </body>
 </html>
