@@ -141,8 +141,7 @@ app.use(async (err, req, res, next) => {
  * Server Start
  *************************/
 const PORT = process.env.PORT || 5500;
-const HOST = process.env.HOST || "localhost";
 
-app.listen(PORT, HOST, () => {
-  console.log(`✅ App running at http://${HOST}:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`✅ App running on port ${PORT}`);
 });
